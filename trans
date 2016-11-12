@@ -1,0 +1,51 @@
+#!/bin/bash
+
+usage=$"$(basename "$0") [-h] [--help] <worlds> <from-to> -- program to translate worlds to different languages
+
+where:
+	-h show this help text
+	--help show this help text
+	<worlds> worlds to translate
+	<from-to> define current and goal languages for translates. this parameter can be like <to>. (default: ru-en)
+
+!Dependencies: jq package.
+please run sudo apt-get install jq to install jq package
+"
+
+
+text=$1 # first parameter
+from_to=${2:-ru-en} # secon parameter
+
+if [[ -z $text || $text = "-h" || $text = "--help" ]];then
+	echo "$usage"
+	exit 0
+fi
+
+api_key="trnsl.1.1.20161110T154248Z.179ae84caff1cf06.10cc0d272a595ee2295cca2fcd19ef7d1f658c5e"
+
+url="https://translate.yandex.net/api/v1.5/tr.json/translate?lang=$from_to&key=$api_key"
+
+response=$(curl -s -X POST -d "text=$text" $url --header "Content-Type:application/x-www-form-urlencoded" -H "Accept: application/json")
+
+response_code=$(echo $response | jq -r '.code')
+response_code=${response_code:-unknown}
+
+if [[ $response_code -ne 200 ]];then
+	(>&2 echo "An Error is occurred, response code equals to $response_code")
+	exit $response_code
+fi
+
+translates_dirty=($(echo $response | jq -r '.text'))
+count_translated_items=`expr ${#translates_dirty[@]} - 2`
+translates=(${translates_dirty[@]:1:$count_translated_items})
+
+for i in "${translates[@]}"
+do
+	translated_text="$translated_text $i"
+done
+
+translated_text=$(echo $translated_text | cut -d '"' -f2)
+
+echo $translated_text
+
+exit 0
